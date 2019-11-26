@@ -51,6 +51,7 @@ library
                      , peano
                      , transformers
                      , util >= 0.1.14
+                     , reg-alloc-graph-color:Hoopl
 
 test-suite test
   import:              c

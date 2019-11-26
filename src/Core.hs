@@ -1,8 +1,12 @@
 {-# LANGUAGE StrictData #-}
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE TypeFamilies #-}
 module Core where
 
 import Compiler.Hoopl
+import Compiler.Hoopl.Passes.Live
+import Data.IntSet (IntSet)
+import qualified Data.IntSet as IS
 import Data.Kind (Type)
 import Numeric.Natural
 
@@ -48,7 +52,7 @@ data Signedness' = UU | SU | SS
 
 data Shift s = ShiftL | ShiftR s
 
-data Operand = Local Word | Const Const
+data Operand = Local Int | Const Const
 
 data Const = Literal Natural | Global Name
 
@@ -59,3 +63,26 @@ newtype LogSize = LogSize { unLogSize :: Word }
 
 newtype Name = Name { unName :: [Char] }
   deriving (Eq, Ord, Show)
+
+instance NodeWithVars Insn where
+    type Var Insn = Int
+    type VarSet Insn = IntSet
+    varsUsed = \ case
+        Label _ -> mempty
+        BumpStack a -> operandVars a
+        Read _ a -> operandVars a
+        Write _ a d -> foldMap operandVars [a, d]
+        UnOp _ a -> operandVars a
+        BinOp _ a b -> foldMap operandVars [a, b]
+        Branch _ a b _ _ -> foldMap operandVars [a, b]
+        UBranch _ -> mempty
+        Jump a as -> foldMap operandVars (a:as)
+        Unreachable -> mempty
+      where
+        operandVars = \ case
+            Local k -> IS.singleton k
+            _ -> mempty
+    varsDefd _ = IS.empty
+    killsAllVars = \ case
+        Unreachable -> True
+        _ -> False
