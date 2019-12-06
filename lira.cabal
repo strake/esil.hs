@@ -27,7 +27,7 @@ common c
                      , peano
                      , text ^>= 1.2.3
                      , transformers ^>= 0.5.6
-                     , util >= 0.1.15
+                     , util >= 0.1.16
   default-language:    Haskell2010
   default-extensions:  UnicodeSyntax
                      , LambdaCase
@@ -51,6 +51,7 @@ common c
                        -Werror=incomplete-record-updates
                        -Werror=missing-fields
                        -Werror=missing-methods
+                       -Wno-unticked-promoted-constructors
 
 library core
   import:              c
@@ -78,6 +79,18 @@ library parse
                      , mtl
                      , regex-applicative
                      , core
+
+library x86
+  import:              c
+  hs-source-dirs:      arch/x86/src
+  exposed-modules:     Asm
+                     , AsmGen
+  build-depends:       hoopl
+                     , lenz-mtl
+                     , microlens-mtl
+                     , mtl
+                     , core
+                     , reg-alloc-graph-color:Hoopl
 
 test-suite test
   import:              c
