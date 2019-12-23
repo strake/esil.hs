@@ -1,13 +1,21 @@
 {-# LANGUAGE StrictData #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE ViewPatterns #-}
 module Core where
 
 import Compiler.Hoopl
+import Compiler.Hoopl.Label
 import Compiler.Hoopl.Passes.Live
+import qualified Data.Char as Char
 import Data.IntSet (IntSet)
 import qualified Data.IntSet as IS
 import Data.Kind (Type)
+import Data.Text (Text)
+import Data.Text.Prettyprint.Doc (Pretty (..))
+import qualified Data.Text.Prettyprint.Doc as Pretty
 import Numeric.Natural
 
 data Insn :: Type -> Type -> Type where
@@ -21,6 +29,8 @@ data Insn :: Type -> Type -> Type where
     UBranch :: Label -> Insn O C
     Jump :: Operand -> [Operand] -> Insn O C
     Unreachable :: Insn O C
+deriving instance Eq (Insn i o)
+deriving instance Show (Insn i o)
 
 instance NonLocal Insn where
     entryLabel (Label l) = l
@@ -35,6 +45,7 @@ instance HooplNode Insn where
 
 data UnOp
   = Ham | Clz | Ctz
+  deriving (Eq, Show)
 
 data BinOp
   = Add | Sub | And | Or | Xor | Andc | Orc | Xnor | Nand | Nor
@@ -45,23 +56,29 @@ data BinOp
   | Mul | MulH Signedness'
   | XMul | XMulH
   | Div Signedness | Rem Signedness
+  deriving (Eq, Show)
 
 type Signedness = Bool
 
 data Signedness' = UU | SU | SS
+  deriving (Eq, Show)
 
 data Shift s = ShiftL | ShiftR s
+  deriving (Eq, Show)
 
 data Operand = Local Int | Const Const
+  deriving (Eq, Show)
 
-data Const = Literal Natural | Global Name
+data Const = Literal Natural | Global (Either Name Label)
+  deriving (Eq, Show)
 
 data BranchCmp = Equal | Less Signedness
+  deriving (Eq, Show)
 
 newtype LogSize = LogSize { unLogSize :: Word }
   deriving (Eq, Ord, Show)
 
-newtype Name = Name { unName :: [Char] }
+newtype Name = Name { unName :: Text }
   deriving (Eq, Ord, Show)
 
 instance NodeWithVars Insn where
@@ -86,3 +103,39 @@ instance NodeWithVars Insn where
     killsAllVars = \ case
         Unreachable -> True
         _ -> False
+
+instance Pretty (Insn e x) where
+    pretty = \ case
+        Label (Lbl l) -> pretty l <> ":"
+        BumpStack n -> Pretty.hsep ["bump-stack", pretty n]
+        Read (LogSize w) a -> Pretty.hsep ["read" , pretty w, pretty a]
+        Write (LogSize w) a d -> Pretty.hsep ["write", pretty w, pretty a, pretty d]
+        UnOp op a -> Pretty.hsep [pretty op, pretty a]
+        BinOp op a b -> Pretty.hsep [pretty op, pretty a, pretty b]
+        Branch br a b (Lbl i) (Lbl j) -> Pretty.hsep ["branch", pretty br, pretty a, pretty b, pretty i, pretty j]
+        UBranch (Lbl l) -> "branch" Pretty.<+> pretty l
+        Jump a as -> Pretty.hsep ("jump" : pretty a : fmap pretty as)
+        Unreachable -> "unreachable"
+
+instance Pretty Operand where
+    pretty = \ case
+        Local n -> "%" <> pretty (fromIntegral n :: Word)
+        Const c -> pretty c
+
+instance Pretty Const where
+    pretty = \ case
+        Literal n -> pretty n
+        Global g -> "@" <> case g of
+            Left name -> pretty name
+            Right (Lbl l) -> pretty l
+
+instance Pretty UnOp where pretty = pretty . fmap Char.toLower . show
+instance Pretty BinOp where pretty = pretty . fmap Char.toLower . show
+instance Pretty BranchCmp where pretty = pretty . fmap Char.toLower . show
+
+instance Pretty Name where pretty = pretty . unName
+
+pattern Lbl :: Int -> Label
+pattern Lbl l <- (lblToUnique -> l)
+  where Lbl l = uniqueToLbl l
+{-# COMPLETE Lbl #-}

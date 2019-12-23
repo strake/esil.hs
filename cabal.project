@@ -1,0 +1,36 @@
+packages: .
+
+source-repository-package
+    type: git
+    location: https://github.com/strake/hoopl.hs
+    tag: d3dd0d31654c0c43b518a3118b1c3ca4f28c0945
+
+source-repository-package
+    type: git
+    location: https://github.com/strake/text.hs
+    tag: 6ad07296e404902f7c3b038653c1a14a13fd39cc
+
+source-repository-package
+    type: git
+    location: https://github.com/strake/text-short.hs
+    tag: b6f0fe13ea3a5ca2cd310a41285bb9307b0ec4db
+
+source-repository-package
+    type: git
+    location: https://github.com/strake/unicode-transforms.hs
+    tag: a6690fb4743d939c9574520f608a2158d31d69ca
+
+source-repository-package
+    type: git
+    location: https://github.com/feuerbach/regex-applicative
+    tag: 4da3c10f6afea5c3aa13f33fba1bf1fd687c6efb
+
+source-repository-package
+    type: git
+    location: https://github.com/strake/tries.hs
+    tag: ba6bd178e587866a7d634550a402b0c1a5357485
+
+source-repository-package
+    type: git
+    location: https://github.com/strake/reg-alloc-graph-color.hs
+    tag: 06a663c4b924af1fc074cf11abc8b32bca9910f6
