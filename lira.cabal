@@ -90,6 +90,7 @@ library x86
                      , microlens-mtl
                      , mtl
                      , core
+                     , prettyprinter
                      , reg-alloc-graph-color:Hoopl
 
 test-suite test

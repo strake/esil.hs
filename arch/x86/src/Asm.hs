@@ -2,12 +2,16 @@
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE OverloadedStrings #-}
 module Asm where
 
 import Compiler.Hoopl (Label)
 import Data.Bits
+import Data.Char (toLower)
 import Data.Int (Int32, Int64)
 import Data.Kind
+import Data.Text.Prettyprint.Doc (Pretty (..))
+import qualified Data.Text.Prettyprint.Doc as Pretty
 
 import Core (LogSize)
 
@@ -20,11 +24,13 @@ data Operand :: Bool -> Type where
     MemOperand :: LogSize -> Addr -> Operand rw
     IPROperand :: LogSize -> Immediate Int32 -> Operand rw
 
+deriving instance Show (Operand rw)
+
 data Addr = Addr
   { baseReg :: Maybe Reg
   , displacement :: Immediate Int32
   , indexReg :: Maybe (Scale, Reg)
-  } deriving (Eq)
+  } deriving (Eq, Show)
 
 nullAddr :: Addr
 nullAddr = Addr { baseReg = Nothing, displacement = Immediate 0, indexReg = Nothing }
@@ -48,6 +54,8 @@ data Line where
 
     J :: Maybe Cond -> Operand r -> Line
 
+deriving instance Show Line
+
 data Cond = O | NO | B | AE | E | NE | BE | A | S | NS | P | NP | L | GE | LE | G
   deriving (Eq, Ord, Read, Show, Enum, Bounded)
 pattern NAE, C, NB, NC, Z, NZ, NA, NBE, PE, PO, NGE, NL, NG, NLE :: Cond
@@ -68,3 +76,7 @@ pattern NLE = G
 
 notCond :: Cond -> Cond
 notCond = toEnum . xor 1 . fromEnum
+
+instance Pretty Line where
+    pretty = \ case
+        i -> pretty . fmap toLower . show $ i
