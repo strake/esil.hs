@@ -14,9 +14,13 @@ extra-source-files:  README.md
 
 common c
   build-depends:       Map
+                     , Set
+                     , category ^>= 0.2.4.2
                      , base ^>= 4.13
                      , base-unicode-symbols
                      , containers
+                     , either-both
+                     , filtrable
                      , hs-functors
                      , lenz
                      , peano
@@ -36,6 +40,9 @@ common c
                      , MonadComprehensions
                      , StandaloneDeriving
                      , DeriveFunctor, DeriveFoldable, DeriveTraversable
+                     , OverloadedStrings
+                     , GADTs
+                     , TypeFamilies
   ghc-options:         -Wall -Wcompat -Wredundant-constraints -Wno-name-shadowing
                        -Wincomplete-record-updates -Wincomplete-uni-patterns
                        -Werror=incomplete-patterns
@@ -48,8 +55,10 @@ library core
   import:              c
   hs-source-dirs:      src/core
   exposed-modules:     Core
-  other-modules:       
-  build-depends:       hoopl
+  other-modules:       Data.MapSet
+                       Orphans
+  build-depends:       generic-trie
+                     , hoopl
                      , lenz-mtl
                      , microlens-mtl
                      , mtl

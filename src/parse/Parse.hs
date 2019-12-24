@@ -1,6 +1,4 @@
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecursiveDo #-}
-{-# LANGUAGE TypeFamilies #-}
 module Parse where
 
 import Compiler.Hoopl (Graph, Graph' (..), O, C, MaybeO (..), addBlock)
@@ -35,7 +33,7 @@ token = asum
   , LineBreak <$ RE.sym '\n'
   ]
 
-grammar :: (Map map, Map.Key map ~ Name) => Grammar r (Prod r Token Token (map (Either a (Graph Insn O C))))
+grammar :: (Map map, Map.Key map ~ Name) => Grammar r (Prod r Token Token (map (Either a (Graph (Insn (Either Natural Text)) O C))))
 grammar = mdo
     decls <- rule $ many (fmap Left <$> static <|> fmap Right <$> fn)
     fn <- rule $ (,) <$ P.namedToken (Word "fn") <*> P.terminal (\ case Word x -> Just (Name x); _ -> Nothing) <* P.namedToken LineBreak <*> body'
@@ -53,7 +51,10 @@ grammar = mdo
       [ Unreachable <$ P.namedToken (Word "unreachable")
       ] <* P.namedToken LineBreak
     operand <- rule $
-      Local <$ P.namedToken Percent <*> P.terminal (\ case Number n -> Just (fromIntegral n); _ -> Nothing) <|> Core.Const <$> constant
+      Local <$ P.namedToken Percent <*> P.terminal (\ case
+          Number n -> Just (Left n)
+          Word x -> Just (Right x)
+          _ -> Nothing) <|> Core.Const <$> constant
     constant <- rule $
       P.terminal (\ case Number n -> Just (Literal n); _ -> Nothing)
     label <- rule $ (Label . uniqueToLbl) <$> P.terminal (\ case Number n -> Just (fromIntegral n); _ -> Nothing) <* P.namedToken Colon <* P.namedToken LineBreak

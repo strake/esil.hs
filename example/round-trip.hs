@@ -1,19 +1,19 @@
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE GADTs #-}
 {-# LANGUAGE QuantifiedConstraints #-}
 {-# LANGUAGE UndecidableInstances #-}
 module Main where
 
-import Prelude hiding (lex)
+import Prelude hiding (Functor, (<$>), lex, map)
 import Compiler.Hoopl
 import Control.Applicative
 import Control.Arrow
+import Control.Categorical.Functor
 import qualified Control.Monad.Free as Free
 import Data.Char
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Monoid (Alt (..))
 import Data.Void (absurd)
+import qualified Data.Text as Text
 import Data.Text.Prettyprint.Doc as Pretty
 import Data.Text.Prettyprint.Doc.Render.String
 import Text.Earley
@@ -29,8 +29,12 @@ main :: IO ()
 main = interact $ doParse & \ case
     (a:_, _) ->
         renderString $ layoutPretty LayoutOptions { layoutPageWidth = AvailablePerLine 96 (7/8) } $
-        Map.foldMapWithKey (\ name body -> vsep ["fn" Pretty.<+> pretty name, pretty body, mempty]) . fmap (either absurd FnBody) $ a
+        Map.foldMapWithKey (\ name body -> vsep ["fn" Pretty.<+> pretty name, pretty body, mempty]) .
+        fmap (either absurd (FnBody . mapGraphBinders (Text.pack . show ||| id))) $ a
     (_, r) -> error (show r)
+
+mapGraphBinders :: (u -> v) -> Graph (Insn u) i o -> Graph (Insn v) i o
+mapGraphBinders = nt . nt . map . (map :: _ -> NT (NT (->)) _ _)
 
 doParse :: _ -> ([Map _ _], _)
 doParse = fullParses theParser . lex
