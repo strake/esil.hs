@@ -1,12 +1,12 @@
 {-# LANGUAGE QuantifiedConstraints #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# OPTIONS_GHC -Wno-partial-type-signatures #-}
 module Main where
 
 import Prelude hiding (Functor, (<$>), lex, map)
 import Compiler.Hoopl
 import Control.Applicative hiding ((<$>))
 import Control.Arrow
-import Control.Categorical.Functor
 import qualified Control.Monad.Free as Free
 import Data.Char
 import Data.Map (Map)
@@ -33,12 +33,6 @@ main = interact $ doParse & \ case
         Map.foldMapWithKey (\ name body -> vsep ["fn" Pretty.<+> pretty name, pretty body, mempty]) .
         fmap (either absurd (FnBody . mapGraphBinders (Text.pack . show ||| id))) $ a
     (_, r) -> error (show r)
-
-mapGraphBinders :: Endofunctor (->) f => (u -> v) -> Graph (Assigned (f u) (Insn u)) i o -> Graph (Assigned (f v) (Insn v)) i o
-mapGraphBinders = nt . nt . map . mapAssigned
-
-mapAssigned :: Endofunctor (->) f => (u -> v) -> NT (NT (->)) (Assigned (f u) (Insn u)) (Assigned (f v) (Insn v))
-mapAssigned f = NT (NT (\ (Assigned lhs rhs) -> Assigned ((<$>) f <$> lhs) (nt (nt (map f)) rhs)))
 
 doParse :: _ -> ([Map _ _], _)
 doParse = fullParses theParser . lex

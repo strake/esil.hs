@@ -5,7 +5,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 module Core where
 
-import Prelude hiding (Functor, (<$>), Monad)
+import Prelude hiding (Functor, (<$>), Monad, map)
 import qualified Prelude as Base
 import Compiler.Hoopl hiding ((<*>))
 import Compiler.Hoopl.Label
@@ -21,7 +21,9 @@ import Data.Text (Text)
 import Data.Text.Prettyprint.Doc (Pretty (..))
 import qualified Data.Text.Prettyprint.Doc as Pretty
 import Numeric.Natural
+import Util
 
+import Data.Assignment
 import Data.MapSet
 import Orphans ()
 
@@ -163,3 +165,24 @@ pattern Lbl :: Int -> Label
 pattern Lbl l <- (lblToUnique -> l)
   where Lbl l = uniqueToLbl l
 {-# COMPLETE Lbl #-}
+
+mapGraphBinders :: (Endofunctor (->) f) => (u -> v) -> Graph (Assigned (f u) (Insn u)) i o -> Graph (Assigned (f v) (Insn v)) i o
+mapGraphBinders = bimapGraphBinders =<< map
+
+bimapGraphBinders :: (a -> b) -> (u -> v) -> Graph (Assigned a (Insn u)) i o -> Graph (Assigned b (Insn v)) i o
+bimapGraphBinders = \ f g -> runIdentity . bitraverseGraphBinders (Identity . f) (Identity . g)
+
+traverseGraphBinders :: (Traversable f, Applicative p) => (u -> p v) -> Graph (Assigned (f u) (Insn u)) i o -> p (Graph (Assigned (f v) (Insn v)) i o)
+traverseGraphBinders = bitraverseGraphBinders =<< traverse
+
+bitraverseGraphBinders :: (Applicative p) => (a -> p b) -> (u -> p v) -> Graph (Assigned a (Insn u)) i o -> p (Graph (Assigned b (Insn v)) i o)
+bitraverseGraphBinders = kleisli ∘∘ nt ∘∘ nt ∘∘ traverseGraph' ∘∘ bitraverseAssigned'
+
+bimapAssigned :: (a -> b) -> (u -> v) -> Assigned a (Insn u) i o -> Assigned b (Insn v) i o
+bimapAssigned = \ f g -> runIdentity . bitraverseAssigned (Identity . f) (Identity . g)
+
+bitraverseAssigned :: (Applicative p) => (a -> p b) -> (u -> p v) -> Assigned a (Insn u) i o -> p (Assigned b (Insn v) i o)
+bitraverseAssigned = kleisli ∘∘ nt ∘∘ nt ∘∘ bitraverseAssigned'
+
+bitraverseAssigned' :: (Applicative p) => (a -> p b) -> (u -> p v) -> NT (NT (Kleisli (->) p)) (Assigned a (Insn u)) (Assigned b (Insn v))
+bitraverseAssigned' = \ f g -> NT (NT (Kleisli (\ (Assigned lhs rhs) -> Assigned <$> traverse f lhs <*> traverseInsn g rhs)))
