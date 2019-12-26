@@ -21,6 +21,7 @@ common c
                      , containers
                      , either-both
                      , filtrable
+                     , hoopl
                      , hs-functors
                      , lenz
                      , peano
@@ -55,10 +56,10 @@ library core
   import:              c
   hs-source-dirs:      src/core
   exposed-modules:     Core
+                       Data.Assignment
   other-modules:       Data.MapSet
                        Orphans
   build-depends:       generic-trie
-                     , hoopl
                      , lenz-mtl
                      , microlens-mtl
                      , mtl
@@ -69,7 +70,6 @@ library parse
   hs-source-dirs:      src/parse
   exposed-modules:     Parse
   build-depends:       Earley ^>= 0.13.0.1
-                     , hoopl
                      , lenz-mtl
                      , lex-applicative
                      , microlens-mtl
@@ -101,7 +101,6 @@ executable round-trip-example
   main-is:             round-trip.hs
   build-depends:       Earley
                      , core
-                     , hoopl
                      , lex-applicative
                      , parse
                      , prettyprinter

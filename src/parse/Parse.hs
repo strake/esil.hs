@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE RecursiveDo #-}
 module Parse where
 
@@ -17,9 +18,11 @@ import Text.Regex.Applicative (RE)
 import qualified Text.Regex.Applicative as RE
 import qualified Text.Regex.Applicative.Lex as RE
 
-import Core
+import Core hiding (Const, Equal)
+import qualified Core
+import Data.Assignment
 
-data Token = LParenth | RParenth | Colon | Word Text | Number Natural | Percent | LineBreak
+data Token = LParenth | RParenth | Colon | Equal | Word Text | Number Natural | Percent | LineBreak
   deriving (Eq, Show)
 
 token :: RE Char Token
@@ -27,13 +30,14 @@ token = asum
   [ LParenth <$ RE.sym '('
   , RParenth <$ RE.sym ')'
   , Colon <$ RE.sym ':'
+  , Equal <$ RE.sym '='
   , Word <$> RE.ident'
   , Number <$> RE.natural'
   , Percent <$ RE.sym '%'
   , LineBreak <$ RE.sym '\n'
   ]
 
-grammar :: (Map map, Map.Key map ~ Name) => Grammar r (Prod r Token Token (map (Either a (Graph (Insn (Either Natural Text)) O C))))
+grammar :: (Map map, Map.Key map ~ Name) => Grammar r (Prod r Token Token (map (Either a (Graph (Assigned (Maybe SrcBndr) (Insn SrcBndr)) O C))))
 grammar = mdo
     decls <- rule $ many (fmap Left <$> static <|> fmap Right <$> fn)
     fn <- rule $ (,) <$ P.namedToken (Word "fn") <*> P.terminal (\ case Word x -> Just (Name x); _ -> Nothing) <* P.namedToken LineBreak <*> body'
@@ -42,20 +46,23 @@ grammar = mdo
     let body = foldr addBlock Map.empty <$> many blockCC
     blockCC <- rule $ Block.joinHead <$> label <*> blockOC
     blockOC <- rule $ (flip . foldr) Block.cons <$> many insnOO <*> (Block.joinTail Block.empty <$> insnOC)
-    insnOO <- rule $
+    insnOO <- rule $ Assigned . Lhs <$> optional (P.namedToken Percent *> binder <* P.namedToken Equal) <*>
       asum
       [ BumpStack <$ P.namedToken (Word "bump-stack") <*> operand
       ] <* P.namedToken LineBreak
-    insnOC <- rule $
+    insnOC <- rule $ Assigned NoLhs <$>
       asum
       [ Unreachable <$ P.namedToken (Word "unreachable")
       ] <* P.namedToken LineBreak
-    operand <- rule $
-      Local <$ P.namedToken Percent <*> P.terminal (\ case
-          Number n -> Just (Left n)
-          Word x -> Just (Right x)
-          _ -> Nothing) <|> Core.Const <$> constant
-    constant <- rule $
-      P.terminal (\ case Number n -> Just (Literal n); _ -> Nothing)
-    label <- rule $ (Label . uniqueToLbl) <$> P.terminal (\ case Number n -> Just (fromIntegral n); _ -> Nothing) <* P.namedToken Colon <* P.namedToken LineBreak
+    operand <- rule $ Local <$ P.namedToken Percent <*> binder <|> Core.Const <$> constant
+    constant <- rule $ P.terminal \ case Number n -> Just (Literal n); _ -> Nothing
+    label <- rule $ (Assigned (Argu (Const ())) . Label . uniqueToLbl) <$> P.terminal (\ case
+        Number n -> Just (fromIntegral n)
+        _ -> Nothing) <* P.namedToken Colon <* P.namedToken LineBreak
+    let binder = P.terminal \ case
+            Number n -> Just (Left n)
+            Word x -> Just (Right x)
+            _ -> Nothing
     pure (Map.fromList <$> decls)
+
+type SrcBndr = Either Natural Text

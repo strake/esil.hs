@@ -4,7 +4,7 @@ module Main where
 
 import Prelude hiding (Functor, (<$>), lex, map)
 import Compiler.Hoopl
-import Control.Applicative
+import Control.Applicative hiding ((<$>))
 import Control.Arrow
 import Control.Categorical.Functor
 import qualified Control.Monad.Free as Free
@@ -23,6 +23,7 @@ import qualified Text.Regex.Applicative as RE
 import Util
 
 import Core hiding (Const)
+import Data.Assignment
 import qualified Parse
 
 main :: IO ()
@@ -33,8 +34,11 @@ main = interact $ doParse & \ case
         fmap (either absurd (FnBody . mapGraphBinders (Text.pack . show ||| id))) $ a
     (_, r) -> error (show r)
 
-mapGraphBinders :: (u -> v) -> Graph (Insn u) i o -> Graph (Insn v) i o
-mapGraphBinders = nt . nt . map . (map :: _ -> NT (NT (->)) _ _)
+mapGraphBinders :: Endofunctor (->) f => (u -> v) -> Graph (Assigned (f u) (Insn u)) i o -> Graph (Assigned (f v) (Insn v)) i o
+mapGraphBinders = nt . nt . map . mapAssigned
+
+mapAssigned :: Endofunctor (->) f => (u -> v) -> NT (NT (->)) (Assigned (f u) (Insn u)) (Assigned (f v) (Insn v))
+mapAssigned f = NT (NT (\ (Assigned lhs rhs) -> Assigned ((<$>) f <$> lhs) (nt (nt (map f)) rhs)))
 
 doParse :: _ -> ([Map _ _], _)
 doParse = fullParses theParser . lex
@@ -47,5 +51,15 @@ theParser = parser Parse.grammar
 
 instance (∀ i o . Pretty (n i o)) => Pretty (FnBody n) where
     pretty = Pretty.vsep . getAlt . getConst . traverseGraph (Const . pure . pretty) . fnBody
+
+instance {-# OVERLAPPING #-} (∀ i o . Pretty (n i o), Pretty k) => Pretty (FnBody (Assigned (Maybe k) n)) where
+    pretty = Pretty.vsep . getAlt . getConst . traverseGraph (Const . pure . prettyAssigned) . fnBody
+
+prettyAssigned :: (Pretty k, Pretty (n i o)) => Assigned (Maybe k) n i o -> Doc a
+prettyAssigned (Assigned lhs rhs) = Pretty.hsep (lhsDoc ++ [pretty rhs])
+  where
+    lhsDoc = case lhs of
+        Lhs (Just k) -> ["%" <> pretty k, "="]
+        _ -> []
 
 newtype FnBody n = FnBody { fnBody :: Graph n O C }
