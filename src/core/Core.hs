@@ -7,7 +7,7 @@ module Core where
 
 import Prelude hiding (Functor, (<$>), Monad, map)
 import qualified Prelude as Base
-import Compiler.Hoopl hiding ((<*>))
+import Compiler.Hoopl (Graph, HooplNode (..), NonLocal (..), O, C, traverseGraph')
 import Compiler.Hoopl.Label
 import Compiler.Hoopl.Passes.Live
 import Control.Categorical.Functor
