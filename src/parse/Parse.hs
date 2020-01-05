@@ -49,10 +49,17 @@ grammar = mdo
     insnOO <- rule $ Assigned . Lhs <$> optional (P.token Percent *> binder <* P.token Equal) <*>
       asum
       [ BumpStack <$ P.token (Word "bump-stack") <*> operand
+      , Read <$ P.token (Word "read") <*> logSize <*> operand
+      , Write <$ P.token (Word "write") <*> logSize <*> operand <*> operand
+      , UnOp <$> unOp <*> operand
+      , BinOp <$> binOp <*> operand <*> operand
       ] <* P.token LineBreak P.<?> "instruction"
     insnOC <- rule $ Assigned NoLhs <$>
       asum
       [ Unreachable <$ P.token (Word "unreachable")
+      , Branch <$ P.token (Word "br") <*> branchCmp <*> operand <*> operand <*> label' <*> label'
+      , UBranch <$ P.token (Word "br") <*> label'
+      , Jump <$ P.token (Word "jump") <*> operand <*> many operand
       ] <* P.token LineBreak P.<?> "instruction — terminator"
     operand <- rule $ Local <$ P.token Percent <*> binder <|> Core.Const <$> constant P.<?> "operand"
     constant <- rule $ (P.<?> "constant") $ P.terminal \ case Number n -> Just (Literal n); _ -> Nothing
@@ -64,6 +71,61 @@ grammar = mdo
             Number n -> Just (Left n)
             Word x -> Just (Right x)
             _ -> Nothing
+    logSize <- rule $ P.terminal \ case
+        Number n -> Just (LogSize (fromIntegral n))
+        _ -> Nothing
     pure (Map.fromList <$> decls)
+
+unOp :: Prod r e Token UnOp
+unOp = P.terminal \ case
+    Word "ham" -> Just Ham
+    Word "clz" -> Just Clz
+    Word "ctz" -> Just Ctz
+    _ -> Nothing
+
+binOp :: Prod r e Token BinOp
+binOp = P.terminal \ case
+    Word "add"    -> Just $ Add
+    Word "sub"    -> Just $ Sub
+    Word "and"    -> Just $ And
+    Word "or"     -> Just $ Or
+    Word "xor"    -> Just $ Xor
+    Word "andc"   -> Just $ Andc
+    Word "orc"    -> Just $ Orc
+    Word "xnor"   -> Just $ Xnor
+    Word "nand"   -> Just $ Nand
+    Word "nor"    -> Just $ Nor
+    Word "grev"   -> Just $ Grev
+    Word "gorc"   -> Just $ Gorc
+    Word "shfl"   -> Just $ Shfl
+    Word "shr"    -> Just $ Shift (ShiftR True)
+    Word "shru"   -> Just $ Shift (ShiftR False)
+    Word "shl"    -> Just $ Shift (ShiftL)
+    Word "ror"    -> Just $ Rotate (ShiftR ())
+    Word "rol"    -> Just $ Rotate (ShiftL)
+    Word "min"    -> Just $ Min True
+    Word "minu"   -> Just $ Min False
+    Word "max"    -> Just $ Max True
+    Word "maxu"   -> Just $ Max False
+    Word "slt"    -> Just $ Slt True
+    Word "sltu"   -> Just $ Slt False
+    Word "mul"    -> Just $ Mul
+    Word "mulh"   -> Just $ MulH SS
+    Word "mulhu"  -> Just $ MulH UU
+    Word "mulhsu" -> Just $ MulH SU
+    Word "xmul"   -> Just $ XMul
+    Word "xmulh"  -> Just $ XMulH
+    Word "div"    -> Just $ Div True
+    Word "divu"   -> Just $ Div False
+    Word "rem"    -> Just $ Rem True
+    Word "remu"   -> Just $ Rem False
+    _ -> Nothing
+
+branchCmp :: Prod r e Token BranchCmp
+branchCmp = P.terminal \ case
+    Word "eq" -> Just Core.Equal
+    Word "l"  -> Just (Core.Less True)
+    Word "lu" -> Just (Core.Less False)
+    _ -> Nothing
 
 type SrcBndr = Either Natural Text
