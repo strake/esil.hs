@@ -37,7 +37,7 @@ token = asum
   , LineBreak <$ RE.sym '\n'
   ]
 
-grammar :: (Map map, Map.Key map ~ Name) => Grammar r (Prod r Token Token (map (Either a (Graph (Assigned (Maybe SrcBndr) (Insn SrcBndr)) O C))))
+grammar :: (Map map, Map.Key map ~ Name) => Grammar r (Prod r Token Token (map (Either a (Graph (Assigned SrcBndr (Insn SrcBndr)) O C))))
 grammar = mdo
     decls <- rule $ many (fmap Left <$> static <|> fmap Right <$> fn)
     fn <- rule $ (,) <$ P.namedToken (Word "fn") <*> P.terminal (\ case Word x -> Just (Name x); _ -> Nothing) <* P.namedToken LineBreak <*> body'

@@ -166,14 +166,14 @@ pattern Lbl l <- (lblToUnique -> l)
   where Lbl l = uniqueToLbl l
 {-# COMPLETE Lbl #-}
 
-mapGraphBinders :: (Endofunctor (->) f) => (u -> v) -> Graph (Assigned (f u) (Insn u)) i o -> Graph (Assigned (f v) (Insn v)) i o
-mapGraphBinders = bimapGraphBinders =<< map
+mapGraphBinders :: (u -> v) -> Graph (Assigned u (Insn u)) i o -> Graph (Assigned v (Insn v)) i o
+mapGraphBinders = join bimapGraphBinders
 
 bimapGraphBinders :: (a -> b) -> (u -> v) -> Graph (Assigned a (Insn u)) i o -> Graph (Assigned b (Insn v)) i o
 bimapGraphBinders = \ f g -> runIdentity . bitraverseGraphBinders (Identity . f) (Identity . g)
 
-traverseGraphBinders :: (Traversable f, Applicative p) => (u -> p v) -> Graph (Assigned (f u) (Insn u)) i o -> p (Graph (Assigned (f v) (Insn v)) i o)
-traverseGraphBinders = bitraverseGraphBinders =<< traverse
+traverseGraphBinders :: (Applicative p) => (u -> p v) -> Graph (Assigned u (Insn u)) i o -> p (Graph (Assigned v (Insn v)) i o)
+traverseGraphBinders = join bitraverseGraphBinders
 
 bitraverseGraphBinders :: (Applicative p) => (a -> p b) -> (u -> p v) -> Graph (Assigned a (Insn u)) i o -> p (Graph (Assigned b (Insn v)) i o)
 bitraverseGraphBinders = kleisli ∘∘ nt ∘∘ nt ∘∘ traverseGraph' ∘∘ bitraverseAssigned'

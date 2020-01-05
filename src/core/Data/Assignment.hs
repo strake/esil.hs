@@ -9,7 +9,7 @@ data Assigned k n i o = Assigned { lhs :: Assignment (Const ()) i o k, rhs :: n 
 
 data Assignment argu i o k where
     Argu :: argu k -> Assignment argu C O k
-    Lhs :: k -> Assignment argu O O k
+    Lhs :: Maybe k -> Assignment argu O O k
     NoLhs :: Assignment argu O C k
 deriving instance Foldable argu => Foldable (Assignment argu i o)
 deriving instance Functor argu => Functor (Assignment argu i o)

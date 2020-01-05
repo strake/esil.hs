@@ -24,7 +24,7 @@ import Data.Assignment
 import Data.MapSet
 import Orphans ()
 
-allocRegs :: (TrieKey v, LabelsPtr entry) => RegCount -> MaybeC i entry -> Graph (Assigned (Maybe v) (Insn v)) i C -> Except _ (Graph (Assigned (Maybe v, Int) (Insn (v, Int))) i C)
+allocRegs :: (TrieKey v, LabelsPtr entry) => RegCount -> MaybeC i entry -> Graph (Assigned v (Insn v)) i C -> Except _ (Graph (Assigned (v, Int) (Insn (v, Int))) i C)
 allocRegs c entry = map (mapGraph unInsn') . Hoopl.allocRegs vars isMove c entry . mapGraph Insn' . renumerateGraph
   where
     vars :: (Applicative p) => (Int -> p Int) -> Insn' v i o -> p (Insn' v i o)
@@ -39,8 +39,8 @@ allocRegs c entry = map (mapGraph unInsn') . Hoopl.allocRegs vars isMove c entry
 
     isNeutral op n = op ∈ [Add, Sub, Or, Xor] && n == 0
 
-renumerateGraph :: TrieKey v => Graph (Assigned (Maybe v) (Insn v)) i o -> Graph (Assigned (Maybe v, Int) (Insn (v, Int))) i o
-renumerateGraph = flip evalState (Map.empty :: Trie _ _) . bitraverseGraphBinders (φ (maybe (pure 0) lookupM)) (φ lookupM)
+renumerateGraph :: TrieKey v => Graph (Assigned v (Insn v)) i o -> Graph (Assigned (v, Int) (Insn (v, Int))) i o
+renumerateGraph = flip evalState (Map.empty :: Trie _ _) . bitraverseGraphBinders (φ lookupM) (φ lookupM)
   where
     lookupM v = M.get >>= \ ks -> case ks !? v of
         Just k -> pure k
@@ -49,7 +49,7 @@ renumerateGraph = flip evalState (Map.empty :: Trie _ _) . bitraverseGraphBinder
 
 type RegCount = Int
 
-newtype Insn' v i o = Insn' { unInsn' :: Assigned (Maybe v, Int) (Insn (v, Int)) i o }
+newtype Insn' v i o = Insn' { unInsn' :: Assigned (v, Int) (Insn (v, Int)) i o }
   deriving (NonLocal, HooplNode)
 
 instance NodeWithVars (Insn' v) where

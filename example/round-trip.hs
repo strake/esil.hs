@@ -46,10 +46,10 @@ theParser = parser Parse.grammar
 instance (∀ i o . Pretty (n i o)) => Pretty (FnBody n) where
     pretty = Pretty.vsep . getAlt . getConst . traverseGraph (Const . pure . pretty) . fnBody
 
-instance {-# OVERLAPPING #-} (∀ i o . Pretty (n i o), Pretty k) => Pretty (FnBody (Assigned (Maybe k) n)) where
+instance {-# OVERLAPPING #-} (∀ i o . Pretty (n i o), Pretty k) => Pretty (FnBody (Assigned k n)) where
     pretty = Pretty.vsep . getAlt . getConst . traverseGraph (Const . pure . prettyAssigned) . fnBody
 
-prettyAssigned :: (Pretty k, Pretty (n i o)) => Assigned (Maybe k) n i o -> Doc a
+prettyAssigned :: (Pretty k, Pretty (n i o)) => Assigned k n i o -> Doc a
 prettyAssigned (Assigned lhs rhs) = Pretty.hsep (lhsDoc ++ [pretty rhs])
   where
     lhsDoc = case lhs of
