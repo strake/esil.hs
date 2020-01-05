@@ -91,6 +91,7 @@ library x86
                      , mtl
                      , core
                      , prettyprinter
+                     , traversal-template ^>= 0.0
                      , reg-alloc-graph-color:Hoopl
 
 test-suite test
@@ -121,6 +122,19 @@ executable round-trip-example
                      , parse
                      , prettyprinter
                      , regex-applicative
+
+executable emit-x86-asm
+  import:              c
+  hs-source-dirs:      arch/x86/x
+  main-is:             emit-asm.hs
+  build-depends:       Earley
+                     , core
+                     , hoopl
+                     , lex-applicative
+                     , parse
+                     , prettyprinter
+                     , regex-applicative
+                     , x86
 
 source-repository head
   type:     git
