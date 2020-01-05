@@ -37,28 +37,29 @@ token = asum
   , LineBreak <$ RE.sym '\n'
   ]
 
-grammar :: (Map map, Map.Key map ~ Name) => Grammar r (Prod r Token Token (map (Either a (Graph (Assigned SrcBndr (Insn SrcBndr)) O C))))
+grammar :: (Map map, Map.Key map ~ Name) => Grammar r (Prod r Text Token (map (Either a (Graph (Assigned SrcBndr (Insn SrcBndr)) O C))))
 grammar = mdo
     decls <- rule $ many (fmap Left <$> static <|> fmap Right <$> fn)
-    fn <- rule $ (,) <$ P.namedToken (Word "fn") <*> P.terminal (\ case Word x -> Just (Name x); _ -> Nothing) <* P.namedToken LineBreak <*> body'
-    static <- rule $ (,) <$ P.namedToken (Word "static") <*> P.terminal (\ case Word x -> Just (Name x); _ -> Nothing) <*> empty
+    fn <- rule $ (,) <$ P.token (Word "fn") <*> P.terminal (\ case Word x -> Just (Name x); _ -> Nothing) <* P.token LineBreak <*> body'
+    static <- rule $ (,) <$ P.token (Word "static") <*> P.terminal (\ case Word x -> Just (Name x); _ -> Nothing) <*> empty
     body' <- rule $ GMany . JustO <$> blockOC <*> body <*> pure NothingO
     let body = foldr addBlock Map.empty <$> many blockCC
     blockCC <- rule $ Block.joinHead <$> label <*> blockOC
     blockOC <- rule $ (flip . foldr) Block.cons <$> many insnOO <*> (Block.joinTail Block.empty <$> insnOC)
-    insnOO <- rule $ Assigned . Lhs <$> optional (P.namedToken Percent *> binder <* P.namedToken Equal) <*>
+    insnOO <- rule $ Assigned . Lhs <$> optional (P.token Percent *> binder <* P.token Equal) <*>
       asum
-      [ BumpStack <$ P.namedToken (Word "bump-stack") <*> operand
-      ] <* P.namedToken LineBreak
+      [ BumpStack <$ P.token (Word "bump-stack") <*> operand
+      ] <* P.token LineBreak P.<?> "instruction"
     insnOC <- rule $ Assigned NoLhs <$>
       asum
-      [ Unreachable <$ P.namedToken (Word "unreachable")
-      ] <* P.namedToken LineBreak
-    operand <- rule $ Local <$ P.namedToken Percent <*> binder <|> Core.Const <$> constant
-    constant <- rule $ P.terminal \ case Number n -> Just (Literal n); _ -> Nothing
-    label <- rule $ (Assigned (Argu (Const ())) . Label . uniqueToLbl) <$> P.terminal (\ case
+      [ Unreachable <$ P.token (Word "unreachable")
+      ] <* P.token LineBreak P.<?> "instruction — terminator"
+    operand <- rule $ Local <$ P.token Percent <*> binder <|> Core.Const <$> constant P.<?> "operand"
+    constant <- rule $ (P.<?> "constant") $ P.terminal \ case Number n -> Just (Literal n); _ -> Nothing
+    label <- rule $ (Assigned (Argu (Const ())) . Label) <$> label' <* traverse_ P.token [Colon, LineBreak]
+    label' <- rule $ (P.<?> "label") $ uniqueToLbl <$> P.terminal \ case
         Number n -> Just (fromIntegral n)
-        _ -> Nothing) <* P.namedToken Colon <* P.namedToken LineBreak
+        _ -> Nothing
     let binder = P.terminal \ case
             Number n -> Just (Left n)
             Word x -> Just (Right x)
