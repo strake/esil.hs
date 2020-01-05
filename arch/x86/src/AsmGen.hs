@@ -42,9 +42,16 @@ doBlockCC = foldBlockNodesB3
     ) `flip` []
 
 doInsnOO :: Assigned Reg (Insn Reg) O O -> [Asm.Line]
-doInsnOO (Assigned (Lhs reg) insn) = case insn of
-    BumpStack a ->
-        [Asm.Mov x (Asm.RegOperand Asm.Rsp), Asm.Add (Asm.RegOperand Asm.Rsp) (doOperand a)]
+doInsnOO (Assigned (Lhs Nothing) insn) = case insn of
+    BumpStack a -> [Asm.Add (Asm.RegOperand Asm.Rsp) (doOperand a)]
+    Write lsz a d -> [Asm.Mov Nothing (Asm.MemOperand lsz (doAddr a)) (doOperand d)]
+    _ -> []
+doInsnOO (Assigned (Lhs (Just reg)) insn) = case insn of
+    BumpStack a
+      | Local i <- a, reg == i ->
+        [Asm.Add (Asm.RegOperand i) (Asm.RegOperand Asm.Rsp), Asm.Xchg x (Asm.RegOperand Asm.Rsp)]
+      | otherwise ->
+        [Asm.Mov Nothing x (Asm.RegOperand Asm.Rsp), Asm.Add (Asm.RegOperand Asm.Rsp) (doOperand a)]
     UnOp op a -> [(case op of
         Ham -> Asm.Popcnt
         Clz -> Asm.Lzcnt
@@ -52,9 +59,9 @@ doInsnOO (Assigned (Lhs reg) insn) = case insn of
     BinOp op a b
       | Local i <- a, reg == i -> doBinOp op x (doOperand b)
       | Local j <- b, reg == j -> doBinOp op x (doOperand a)
-      | otherwise -> Asm.Mov x (doOperand a) : doBinOp op x (doOperand b)
-    Read lsz a -> [Asm.Mov x (Asm.MemOperand lsz (doAddr a))]
-    Write lsz a d -> [Asm.Mov (Asm.MemOperand lsz (doAddr a)) (doOperand d)]
+      | otherwise -> Asm.Mov Nothing x (doOperand a) : doBinOp op x (doOperand b)
+    Read lsz a -> [Asm.Mov Nothing x (Asm.MemOperand lsz (doAddr a))]
+    Write lsz a d -> [Asm.Mov Nothing (Asm.MemOperand lsz (doAddr a)) (doOperand d)]
   where
     x = Asm.RegOperand reg
 
@@ -101,8 +108,8 @@ doBinOp = fmap sequenceA . sequenceA . \ case
     XMul   -> error "xmul"
     MulH _ -> error "mulh"
     XMulH  -> error "xmulh"
-    Min s  -> [Asm.Cmp, Asm.Cmov (bool Asm.A Asm.G s)]
-    Max s  -> [Asm.Cmp, Asm.Cmov (bool Asm.B Asm.L s)]
+    Min s  -> [Asm.Cmp, Asm.Mov (Just $ bool Asm.A Asm.G s)]
+    Max s  -> [Asm.Cmp, Asm.Mov (Just $ bool Asm.B Asm.L s)]
     And    -> [Asm.And]
     Or     -> [Asm.Or]
     Xor    -> [Asm.Xor]
@@ -128,11 +135,11 @@ mkSwap a b = [Asm.Xor a b, Asm.Xor b a, Asm.Xor a b]
 
 mkArguments :: [Asm.Operand r] -> [Asm.Line]
 mkArguments =
-    zipWithRemaining (compose2 Asm.Mov Asm.RegOperand id) [Asm.Rax ..] & \ (ls, r) -> ls ++ case r of
+    zipWithRemaining (compose2 (Asm.Mov Nothing) Asm.RegOperand id) [Asm.Rax ..] & \ (ls, r) -> ls ++ case r of
     Just (Right as) ->
         Asm.Add (Asm.RegOperand Asm.Rsp)
                 (Asm.ImmediateOperand (Asm.Immediate (fromIntegral $ 8*length as))) :
-        [Asm.Mov (Asm.MemOperand (LogSize 3)
+        [Asm.Mov Nothing (Asm.MemOperand (LogSize 3)
                   Asm.nullAddr { Asm.baseReg = Just Asm.Rsp
                                , Asm.displacement = Asm.Immediate (8*k) }) a
         | (k, a) <- count (toList as)]

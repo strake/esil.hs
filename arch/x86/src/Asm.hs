@@ -44,10 +44,11 @@ data Reg = Rax | Rcx | Rdx | Rbx | Rsp | Rbp | Rsi | Rdi | R8 | R9 | R10 | R11 |
 data Line where
     Ret, Nop, PushF, PopF, Cmc, Clc, Stc, Cli, Sti, Cld, Std :: Line
     Inc, Dec, Not, Neg, Bswap :: Operand True -> Line
-    Add, Or, Adc, Sbb, And, Sub, Xor, Cmp, Test, Mov, Bsf, Bsr, Andn, Imul :: Operand True -> Operand r -> Line
+    Add, Or, Adc, Sbb, And, Sub, Xor, Cmp, Test, Bsf, Bsr, Andn, Imul :: Operand True -> Operand r -> Line
     Rol, Ror, Rcl, Rcr, Shl, Shr, Sar :: Operand True -> Operand r -> Line
     Popcnt, Lzcnt, Tzcnt :: Operand True -> Operand r -> Line
-    Cmov :: Cond -> Operand True -> Operand r -> Line
+    Xchg :: Operand True -> Operand True -> Line
+    Mov :: Maybe Cond -> Operand True -> Operand r -> Line
     Set :: Cond -> Operand True -> Line
 
     Lea :: Operand True -> Operand True -> Line
