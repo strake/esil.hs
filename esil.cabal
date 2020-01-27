@@ -1,5 +1,5 @@
 cabal-version:       3.0
-name:                lira
+name:                esil
 version:             0.1.0.0
 -- synopsis:
 -- description:
@@ -138,4 +138,4 @@ executable emit-x86-asm
 
 source-repository head
   type:     git
-  location: https://github.com/strake/lira.hs
+  location: https://github.com/strake/esil.hs
