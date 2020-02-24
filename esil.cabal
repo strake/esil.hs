@@ -53,8 +53,11 @@ common c
                        -Werror=missing-methods
                        -Wno-unticked-promoted-constructors
 
+library
+
 library core
   import:              c
+  visibility:          public
   hs-source-dirs:      src/core
   exposed-modules:     Core
                        Core.RegAlloc
@@ -67,6 +70,7 @@ library core
 
 library parse
   import:              c
+  visibility:          public
   hs-source-dirs:      src/parse
   exposed-modules:     Parse
   build-depends:       Earley ^>= 0.13.0.1
