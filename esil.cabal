@@ -62,9 +62,6 @@ library core
   other-modules:       Data.MapSet
                        Orphans
   build-depends:       generic-trie
-                     , lenz-mtl
-                     , microlens-mtl
-                     , mtl
                      , prettyprinter ^>= 1.5.1
                      , reg-alloc-graph-color:Hoopl
 
@@ -73,10 +70,7 @@ library parse
   hs-source-dirs:      src/parse
   exposed-modules:     Parse
   build-depends:       Earley ^>= 0.13.0.1
-                     , lenz-mtl
                      , lex-applicative ^>= 0.0.0.1
-                     , microlens-mtl
-                     , mtl
                      , regex-applicative
                      , core
 
