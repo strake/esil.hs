@@ -10,7 +10,6 @@
 {-# OPTIONS_GHC -ddump-splices #-}
 module Asm where
 
-import Compiler.Hoopl.Label
 import Control.Applicative
 import Control.Monad (guard)
 import Control.Traversal.TH (makeTraversal)
@@ -23,7 +22,7 @@ import Data.Monoid (Alt (..))
 import Data.Text.Prettyprint.Doc (Pretty (..))
 import qualified Data.Text.Prettyprint.Doc as Pretty
 
-import Core (LogSize)
+import Core (Label (..), LogSize)
 
 data Immediate a = Immediate a | LabelRelValue Label
   deriving (Eq, Show)
@@ -31,7 +30,7 @@ data Immediate a = Immediate a | LabelRelValue Label
 instance Pretty a => Pretty (Immediate a) where
     pretty = \ case
         Immediate a -> pretty a
-        LabelRelValue l -> pretty (lblToUnique l)
+        LabelRelValue l -> pretty (unLbl l)
 
 data Operand :: Bool -> Type where
     ImmediateOperand :: Immediate Int64 -> Operand False

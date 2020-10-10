@@ -1,10 +1,13 @@
 {-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE RecursiveDo #-}
+{-# LANGUAGE DataKinds #-}
 module Parse where
 
-import Compiler.Hoopl (Graph, Graph' (..), O, C, MaybeO (..), addBlock)
-import qualified Compiler.Hoopl.Block as Block
-import Compiler.Hoopl.Label
+import qualified Compiler.Flow.Block as Block
+import Compiler.Flow.Graph (Graph)
+import qualified Compiler.Flow.Graph as Graph
+import Compiler.Flow.NonLocal (NonLocal (..))
+import Compiler.Flow.Shape (End (..), MaybeO (..), SEnd (..))
 import Control.Applicative
 import Data.Foldable
 import Data.Map.Class (Map)
@@ -37,15 +40,17 @@ token = asum
   , LineBreak <$ RE.sym '\n'
   ]
 
-grammar :: (Map map, Map.Key map ~ Name) => Grammar r (Prod r Text Token (map (Either a (Graph (Assigned SrcBndr (Insn SrcBndr)) O C))))
+grammar
+ :: (Map map, Map.Key map ~ Name, Map map', Map.Key map' ~ Core.Label)
+ => Grammar r (Prod r Text Token (map (Either a (Graph map' (Assigned SrcBndr (Insn SrcBndr)) O C))))
 grammar = mdo
     decls <- rule $ many (fmap Left <$> static <|> fmap Right <$> fn)
     fn <- rule $ (,) <$ P.token (Word "fn") <*> P.terminal (\ case Word x -> Just (Name x); _ -> Nothing) <* P.token LineBreak <*> body'
     static <- rule $ (,) <$ P.token (Word "static") <*> P.terminal (\ case Word x -> Just (Name x); _ -> Nothing) <*> empty
-    body' <- rule $ GMany . JustO <$> blockOC <*> body <*> pure NothingO
-    let body = foldr addBlock Map.empty <$> many blockCC
-    blockCC <- rule $ Block.joinHead <$> label <*> blockOC
-    blockOC <- rule $ (flip . foldr) Block.cons <$> many insnOO <*> (Block.joinTail Block.empty <$> insnOC)
+    body' <- rule $ Graph.Body . JustO <$> blockOC <*> body <*> pure NothingO
+    let body = foldr (Map.insert =<< entryLabel) Map.empty <$> many blockCC
+    blockCC <- rule $ Block.cons Clos <$> label <*> blockOC
+    blockOC <- rule $ (flip . foldr) (Block.cons Open) <$> many insnOO <*> (Block.snoc Clos Block.empty <$> insnOC)
     insnOO <- rule $ Assigned . Lhs <$> optional (P.token Percent *> binder <* P.token Equal) <*>
       asum
       [ BumpStack <$ P.token (Word "bump-stack") <*> operand
@@ -64,7 +69,7 @@ grammar = mdo
     operand <- rule $ Local <$ P.token Percent <*> binder <|> Core.Const <$> constant P.<?> "operand"
     constant <- rule $ (P.<?> "constant") $ P.terminal \ case Number n -> Just (Literal n); _ -> Nothing
     label <- rule $ (Assigned (Argu (Const ())) . Label) <$> label' <* traverse_ P.token [Colon, LineBreak]
-    label' <- rule $ (P.<?> "label") $ uniqueToLbl <$> P.terminal \ case
+    label' <- rule $ (P.<?> "label") $ Lbl <$> P.terminal \ case
         Number n -> Just (fromIntegral n)
         _ -> Nothing
     let binder = P.terminal \ case

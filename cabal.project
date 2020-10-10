@@ -1,9 +1,22 @@
 packages: .
 
+package filtrable
+    flags: +containers
+
 source-repository-package
     type: git
-    location: https://github.com/strake/hoopl.hs
-    tag: d3dd0d31654c0c43b518a3118b1c3ca4f28c0945
+    location: https://github.com/strake/Set.hs
+    tag: 29b920a864a31ccae468b862e336052a88b1a9eb
+
+source-repository-package
+    type: darcs
+    location: https://hub.darcs.net/strake/flow.hs
+    tag: "daily 18554.0"
+
+source-repository-package
+    type: git
+    location: https://github.com/strake/lex-applicative.hs
+    tag: 066b9e150bee0c3beb38ccb90c87f57ed1f7d84e
 
 source-repository-package
     type: git
@@ -31,6 +44,11 @@ source-repository-package
     tag: ba6bd178e587866a7d634550a402b0c1a5357485
 
 source-repository-package
-    type: git
-    location: https://github.com/strake/reg-alloc-graph-color.hs
-    tag: 06a663c4b924af1fc074cf11abc8b32bca9910f6
+    type: darcs
+    location: https://hub.darcs.net/strake/reg-alloc-graph-color.hs
+    tag: "daily 18554.0"
+
+source-repository-package
+    type: darcs
+    location: https://hub.darcs.net/strake/transformers.hs
+    tag: strake-v0.5.7.0

@@ -3,12 +3,18 @@
 {-# LANGUAGE DataKinds #-}
 module AsmGen where
 
-import Compiler.Hoopl hiding ((<*>))
+import Prelude hiding ((.), id)
+import Compiler.Flow.Block (Block)
+import qualified Compiler.Flow.Block as Block
+import Compiler.Flow.Graph (Graph)
+import qualified Compiler.Flow.Graph as Graph
+import Compiler.Flow.Shape (End (..), MaybeC (..), MaybeO (..), bishape, eitherCOS', withKnownEnd)
 import Control.Applicative
+import Control.Category (Category (..))
+import Control.Category.Dual (Dual (..))
 import Control.Monad (join)
 import Data.Bool (bool)
 import Data.Foldable (toList)
-import qualified Data.Map.Class as Map
 import qualified Data.Text as Text
 import Util
 import Util.List
@@ -20,26 +26,31 @@ import Data.Assignment
 import Asm (Reg)
 import qualified Asm
 
-doGraphOC :: Graph (Assigned Reg (Insn Reg)) O C -> ([Asm.Line], LabelMap [Asm.Line])
+doGraphOC
+ :: Functor map => Graph map (Assigned Reg (Insn Reg)) O C -> ([Asm.Line], map [Asm.Line])
 doGraphOC = \ case
-    GMany (JustO entry) body NothingO -> (doBlockOX entry, doBody body)
+    Graph.Body (JustO entry) body NothingO -> (doBlockOX entry, doBody body)
 
-doBody :: Body (Assigned Reg (Insn Reg)) -> LabelMap [Asm.Line]
-doBody = foldr (uncurry Map.insert . doBlockCC . snd) Map.empty . bodyList
+type Body map n = map (Block n C C)
+
+doBody :: Functor map => Body map (Assigned Reg (Insn Reg)) -> map [Asm.Line]
+doBody = fmap (snd . doBlockCC)
 
 doBlockOX :: Block (Assigned Reg (Insn Reg)) O o -> [Asm.Line]
-doBlockOX = foldBlockNodesB3
-    ( \ _ -> id
-    , (<|>) . doInsnOO
-    , (<|>) . doInsnOC
-    ) <*> blockShape & snd & join shape ([] :: [Asm.Line])
+doBlockOX = dual <$> (withKnownEnd (Block.fold'
+    ( NothingC
+    ,      (Dual . (<|>) . doInsnOO)
+    , pure (Dual . (<|>) . doInsnOC)
+    )) =<< snd . bishape) <*> flip join ([] :: [Asm.Line]) . eitherCOS' . snd . bishape
 
 doBlockCC :: Block (Assigned Reg (Insn Reg)) C C -> (Label, [Asm.Line])
-doBlockCC = foldBlockNodesB3
-    (\ (Assigned (Argu (Const ())) (Label l)) -> (,) l
-    , (<|>) . doInsnOO
-    , (<|>) . doInsnOC
-    ) `flip` []
+doBlockCC = Block.fold'
+    ( pure \ (Assigned (Argu (Const ())) (Label l)) -> Dual ((,) l)
+    ,      (Dual . (<|>) . doInsnOO)
+    , pure (Dual . (<|>) . doInsnOC)
+    ) `φ` []
+  where
+    φ = flip . fmap dual
 
 doInsnOO :: Assigned Reg (Insn Reg) O O -> [Asm.Line]
 doInsnOO (Assigned (Lhs Nothing) insn) = case insn of

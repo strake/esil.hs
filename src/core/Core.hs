@@ -1,15 +1,18 @@
 {-# LANGUAGE StrictData #-}
-{-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE DataKinds #-}
 module Core where
 
 import Prelude hiding (Functor, (<$>), Monad, map)
 import qualified Prelude as Base
-import Compiler.Hoopl (Graph, HooplNode (..), NonLocal (..), O, C, traverseGraph')
-import Compiler.Hoopl.Label
-import Compiler.Hoopl.Passes.Live
+import Compiler.Flow.Graph (Graph)
+import qualified Compiler.Flow.Graph as Flow.Graph
+import Compiler.Flow.NonLocal hiding (Label)
+import qualified Compiler.Flow.NonLocal as Flow
+import Compiler.Flow.Pass.Live
+import Compiler.Flow.Shape (End (..))
 import Control.Categorical.Functor
 import Control.Categorical.Monad
 import qualified Data.Char as Char
@@ -27,7 +30,7 @@ import Data.Assignment
 import Data.MapSet
 import Orphans ()
 
-data Insn v :: Type -> Type -> Type where
+data Insn v :: End -> End -> Type where
     Label :: Label -> Insn v C O
     BumpStack :: Operand v -> Insn v O O
     Read :: LogSize -> Operand v -> Insn v O O
@@ -60,16 +63,16 @@ instance (Applicative m, Monad (->) m) => Functor (Kleisli (->) m) (NT (NT (Klei
 instance Functor (->) (NT (NT (->))) Insn where
     map f = NT (NT (runIdentity . traverseInsn (Identity . f)))
 
+newtype Label = Lbl { unLbl :: Int }
+  deriving (Eq, Show, Ord {- XXX -})
+
 instance NonLocal (Insn v) where
+    type Label (Insn v) = Label
     entryLabel (Label l) = l
     successors = \ case
         Branch _ _ _ l₁ l₂ -> [l₁, l₂]
         UBranch l -> [l]
         _ -> []
-
-instance HooplNode (Insn v) where
-    mkBranchNode = UBranch
-    mkLabelNode = Label
 
 data UnOp
   = Ham | Clz | Ctz
@@ -109,7 +112,7 @@ newtype LogSize = LogSize { unLogSize :: Word }
 newtype Name = Name { unName :: Text }
   deriving (Eq, Ord, Show)
 
-instance TrieKey k => NodeWithVars (Insn k) where
+instance TrieKey k => HasVars (Insn k) where
     type VarSet (Insn k) = MapSet (Trie k)
     varsUsed = \ case
         Label _ -> Set.empty
@@ -161,22 +164,17 @@ instance Pretty BranchCmp where pretty = pretty . fmap Char.toLower . show
 
 instance Pretty Name where pretty = pretty . unName
 
-pattern Lbl :: Int -> Label
-pattern Lbl l <- (lblToUnique -> l)
-  where Lbl l = uniqueToLbl l
-{-# COMPLETE Lbl #-}
-
-mapGraphBinders :: (u -> v) -> Graph (Assigned u (Insn u)) i o -> Graph (Assigned v (Insn v)) i o
+mapGraphBinders :: (Base.Functor map) => (u -> v) -> Graph map (Assigned u (Insn u)) i o -> Graph map (Assigned v (Insn v)) i o
 mapGraphBinders = join bimapGraphBinders
 
-bimapGraphBinders :: (a -> b) -> (u -> v) -> Graph (Assigned a (Insn u)) i o -> Graph (Assigned b (Insn v)) i o
-bimapGraphBinders = \ f g -> runIdentity . bitraverseGraphBinders (Identity . f) (Identity . g)
+bimapGraphBinders :: (Base.Functor map) => (a -> b) -> (u -> v) -> Graph map (Assigned a (Insn u)) i o -> Graph map (Assigned b (Insn v)) i o
+bimapGraphBinders = \ f g -> Flow.Graph.map' (bimapAssigned f g)
 
-traverseGraphBinders :: (Applicative p) => (u -> p v) -> Graph (Assigned u (Insn u)) i o -> p (Graph (Assigned v (Insn v)) i o)
+traverseGraphBinders :: (Applicative p, Traversable map) => (u -> p v) -> Graph map (Assigned u (Insn u)) i o -> p (Graph map (Assigned v (Insn v)) i o)
 traverseGraphBinders = join bitraverseGraphBinders
 
-bitraverseGraphBinders :: (Applicative p) => (a -> p b) -> (u -> p v) -> Graph (Assigned a (Insn u)) i o -> p (Graph (Assigned b (Insn v)) i o)
-bitraverseGraphBinders = kleisli ∘∘ nt ∘∘ nt ∘∘ traverseGraph' ∘∘ bitraverseAssigned'
+bitraverseGraphBinders :: (Applicative p, Traversable map) => (a -> p b) -> (u -> p v) -> Graph map (Assigned a (Insn u)) i o -> p (Graph map (Assigned b (Insn v)) i o)
+bitraverseGraphBinders = \ f g -> Flow.Graph.traverse' (kleisli (nt (nt (bitraverseAssigned' f g))))
 
 bimapAssigned :: (a -> b) -> (u -> v) -> Assigned a (Insn u) i o -> Assigned b (Insn v) i o
 bimapAssigned = \ f g -> runIdentity . bitraverseAssigned (Identity . f) (Identity . g)

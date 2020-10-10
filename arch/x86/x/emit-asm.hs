@@ -5,7 +5,7 @@
 module Main where
 
 import Prelude hiding (lex)
-import Compiler.Hoopl
+import Compiler.Flow.Shape (MaybeC (..))
 import Control.Arrow
 import qualified Control.Monad.Free as Free
 import Control.Monad.Trans.Except (runExcept)
@@ -14,6 +14,8 @@ import Data.Char
 import Data.Map (Map)
 import qualified Data.Map as Map
 import qualified Data.Map.Class as MC
+import qualified Data.Map.Fresh.Class as C (FreshMap)
+import qualified Data.Map.Fresh.Class as MC (FreshMap (..))
 import Data.Monoid (Alt (..))
 import Data.Void (absurd)
 import Data.Text (Text)
@@ -33,7 +35,7 @@ import qualified AsmGen as Asm
 
 main :: IO ()
 main = interact $ doParse & \ case
-    (a:_, _) -> case runExcept $ (traverse . traverse) (allocRegs 15 (NothingC :: _ Label)) a of
+    (a:_, _) -> case runExcept $ (traverse . traverse) (allocRegs 15 NothingC) a of
         Left e -> error (show e)
         Right a' ->
             renderString $ layoutPretty LayoutOptions { layoutPageWidth = AvailablePerLine 96 (7/8) } $
@@ -42,7 +44,7 @@ main = interact $ doParse & \ case
 
     (_, r) -> error (show r)
 
-toReg n = toEnum (n + bool 0 1 (n >= 4))
+toReg n = toEnum (n - bool 1 0 (n >= 4))
 
 doParse :: _ -> ([Map _ _], _)
 doParse = fullParses theParser . lex
@@ -56,7 +58,7 @@ theParser = parser Parse.grammar
 data Fn = Fn
   { name :: Text
   , entry :: [Asm.Line]
-  , body :: LabelMap [Asm.Line]
+  , body :: Map Core.Label [Asm.Line]
   }
 
 instance Pretty Fn where
@@ -64,3 +66,10 @@ instance Pretty Fn where
         (pretty name <> ":" :
          fmap (("\t" <>) . pretty) entry ++
          MC.foldrWithKey (\ (Lbl l) cs -> (++) $ ("." <> pretty l <> ":") : fmap pretty cs) [] body)
+
+instance C.FreshMap (Map Label) where
+    insertFreshWithKeyF f as = (\ a -> (l, Map.insert l a as)) <$> f l
+      where
+        l = case Map.lookupMax as of
+            Nothing -> Lbl 0
+            Just (Lbl n, _) -> Lbl (n+1)

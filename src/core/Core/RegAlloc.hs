@@ -1,10 +1,14 @@
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# OPTIONS_GHC -Wno-partial-type-signatures #-}
 module Core.RegAlloc where
 
 import Prelude hiding (Functor, (<$>), Monad, map)
-import Compiler.Hoopl hiding ((<*>))
-import Compiler.Hoopl.Passes.Live
+import Compiler.Flow.Graph (Graph)
+import qualified Compiler.Flow.Graph as Graph
+import Compiler.Flow.NonLocal as Flow.NonLocal
+import Compiler.Flow.Pass.Live
+import Compiler.Flow.Shape
 import Control.Applicative (Alternative (..))
 import Control.Categorical.Functor
 import Control.Monad.Trans.Except (Except)
@@ -16,7 +20,9 @@ import Data.GenericTrie.Internal (Trie (..))
 import Data.IntSet (IntSet)
 import qualified Data.IntMap as IM
 import Data.Map.Class as Map
-import qualified RegAlloc.Hoopl as Hoopl
+import Data.Map.Fresh.Class (FreshMap)
+import qualified RegAlloc.Flow
+import qualified RegAlloc.Flow as Flow (allocRegs)
 import Util
 
 import Core
@@ -24,22 +30,27 @@ import Data.Assignment
 import Data.MapSet
 import Orphans ()
 
-allocRegs :: (TrieKey v, LabelsPtr entry) => RegCount -> MaybeC i entry -> Graph (Assigned v (Insn v)) i C -> Except _ (Graph (Assigned (v, Int) (Insn (v, Int))) i C)
-allocRegs c entry = map (mapGraph unInsn') . Hoopl.allocRegs vars isMove c entry . mapGraph Insn' . renumerateGraph
+allocRegs
+ :: (TrieKey v, FreshMap map, Flow.NonLocal.Label (Insn' v) ~ Key map)
+ => RegCount -> MaybeC i (map ()) -> Graph map (Assigned v (Insn v)) i C
+ -> Except _ (Graph map (Assigned (v, Int) (Insn (v, Int))) i C)
+allocRegs c entry = map (Graph.map' unInsn') . Flow.allocRegs vars isMove [1..c] entry . Graph.map' Insn' . renumerateGraph
   where
     vars :: (Applicative p) => (Int -> p Int) -> Insn' v i o -> p (Insn' v i o)
     vars = \ f (Insn' insn') -> Insn' <$> bitraverseAssigned (traverse f) (traverse f) insn'
 
-    isMove :: Insn' v i o -> Maybe Hoopl.MoveSpec
+    isMove :: Insn' v i o -> Maybe (RegAlloc.Flow.MoveSpec (Either a Int))
     isMove = unInsn' & rhs & \ insn -> do
         BinOp op a b <- pure insn
-        let f a b = [Hoopl.MoveSpec (Hoopl.Node v)
+        let f a b = [RegAlloc.Flow.MoveSpec (Right v)
                     | Local (_, v) <- pure a, Core.Const (Literal n) <- pure b, isNeutral op n]
         f a b <|> f b a
 
     isNeutral op n = op ∈ [Add, Sub, Or, Xor] && n == 0
 
-renumerateGraph :: TrieKey v => Graph (Assigned v (Insn v)) i o -> Graph (Assigned (v, Int) (Insn (v, Int))) i o
+renumerateGraph
+ :: (TrieKey v, Traversable map)
+ => Graph map (Assigned v (Insn v)) i o -> Graph map (Assigned (v, Int) (Insn (v, Int))) i o
 renumerateGraph = flip evalState (Map.empty :: Trie _ _) . bitraverseGraphBinders (φ lookupM) (φ lookupM)
   where
     lookupM v = M.get >>= \ ks -> case ks !? v of
@@ -50,9 +61,13 @@ renumerateGraph = flip evalState (Map.empty :: Trie _ _) . bitraverseGraphBinder
 type RegCount = Int
 
 newtype Insn' v i o = Insn' { unInsn' :: Assigned (v, Int) (Insn (v, Int)) i o }
-  deriving (NonLocal, HooplNode)
 
-instance NodeWithVars (Insn' v) where
+instance NonLocal (Insn' v) where
+    type Label (Insn' v) = Core.Label
+    entryLabel = entryLabel . rhs . unInsn'
+    successors = successors . rhs . unInsn'
+
+instance HasVars (Insn' v) where
     type VarSet (Insn' v) = IntSet
     killsAllVars = killsAllVars . bimapAssigned snd snd . unInsn'
     varsUsed = coerce (IM.keysSet :: _ () -> _) . varsUsed . bimapAssigned snd snd . unInsn'

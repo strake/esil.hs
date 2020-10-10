@@ -13,15 +13,15 @@ build-type:          Simple
 extra-source-files:  README.md
 
 common c
-  build-depends:       Map ^>= 0.1.3.2
+  build-depends:       Map ^>= 0.1.3.3
                      , Set ^>= 0.0.2
                      , category ^>= 0.2.4.2
                      , base ^>= 4.13
                      , base-unicode-symbols ^>= 0.2.4.2
                      , containers ^>= 0.6.2.1
                      , either-both ^>= 0.1.1.1
-                     , filtrable ^>= 0.1.3
-                     , hoopl
+                     , filtrable ^>= 0.1.6
+                     , flow
                      , hs-functors ^>= 0.1.5
                      , lenz ^>= 0.4.2
                      , peano ^>= 0.1.0.1
@@ -66,7 +66,8 @@ library core
                        Orphans
   build-depends:       generic-trie
                      , prettyprinter ^>= 1.5.1
-                     , reg-alloc-graph-color:Hoopl
+                     , reg-alloc-graph-color:reg-alloc-graph-color
+                     , reg-alloc-graph-color:flow
 
 library parse
   import:              c
@@ -83,14 +84,14 @@ library x86
   hs-source-dirs:      arch/x86/src
   exposed-modules:     Asm
                      , AsmGen
-  build-depends:       hoopl
+  build-depends:       flow
                      , lenz-mtl
                      , microlens-mtl
                      , mtl
                      , core
                      , prettyprinter
                      , traversal-template ^>= 0.0
-                     , reg-alloc-graph-color:Hoopl
+                     , reg-alloc-graph-color
 
 test-suite test
   import:              c
@@ -127,7 +128,7 @@ executable emit-x86-asm
   main-is:             emit-asm.hs
   build-depends:       Earley
                      , core
-                     , hoopl
+                     , flow
                      , lex-applicative
                      , parse
                      , prettyprinter
