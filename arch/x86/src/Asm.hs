@@ -30,7 +30,7 @@ data Immediate a = Immediate a | LabelRelValue Label
 instance Pretty a => Pretty (Immediate a) where
     pretty = \ case
         Immediate a -> pretty a
-        LabelRelValue l -> pretty (unLbl l)
+        LabelRelValue l -> "." <> pretty (unLbl l)
 
 data Operand :: Bool -> Type where
     ImmediateOperand :: Immediate Int64 -> Operand False
