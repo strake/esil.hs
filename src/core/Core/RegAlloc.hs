@@ -61,6 +61,7 @@ renumerateGraph = flip evalState (Map.empty :: Trie _ _) . bitraverseGraphBinder
 type RegCount = Int
 
 newtype Insn' v i o = Insn' { unInsn' :: Assigned (v, Int) (Insn (v, Int)) i o }
+  deriving (Eq, Show)
 
 instance NonLocal (Insn' v) where
     type Label (Insn' v) = Core.Label

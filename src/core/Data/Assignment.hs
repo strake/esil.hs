@@ -9,11 +9,14 @@ import Control.Applicative
 import qualified Data.Set.Class as Set
 
 data Assigned k n i o = Assigned { lhs :: Assignment (Const ()) i o k, rhs :: n i o }
+  deriving (Eq, Show)
 
 data Assignment argu i o k where
     Argu :: argu k -> Assignment argu C O k
     Lhs :: Maybe k -> Assignment argu O O k
     NoLhs :: Assignment argu O C k
+deriving instance (Eq k, Eq (argu k)) => Eq (Assignment argu i o k)
+deriving instance (Show k, Show (argu k)) => Show (Assignment argu i o k)
 deriving instance Foldable argu => Foldable (Assignment argu i o)
 deriving instance Functor argu => Functor (Assignment argu i o)
 deriving instance Traversable argu => Traversable (Assignment argu i o)
