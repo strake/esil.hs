@@ -23,7 +23,8 @@ common c
                      , filtrable ^>= 0.1.6
                      , flow
                      , hs-functors ^>= 0.1.5
-                     , lenz ^>= 0.4.2
+                     , lens-core ^>= 0.1
+                     , lens-core-template ^>= 0.1
                      , peano ^>= 0.1.0.1
                      , text ^>= 1.2.3
                      , transformers ^>= 0.5.6

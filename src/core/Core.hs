@@ -68,11 +68,11 @@ newtype Label = Lbl { unLbl :: Int }
 
 instance NonLocal (Insn v) where
     type Label (Insn v) = Label
-    entryLabel (Label l) = l
-    successors = \ case
-        Branch _ _ _ l₁ l₂ -> [l₁, l₂]
-        UBranch l -> [l]
-        _ -> []
+    entryLabelL f (Label l) = Label <$> f l
+    successorsL f = \ case
+        Branch c a b l₁ l₂ -> Branch c a b <$> f l₁ <*> f l₂
+        UBranch l -> UBranch <$> f l
+        x -> pure x
 
 data UnOp
   = Ham | Clz | Ctz

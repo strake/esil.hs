@@ -11,7 +11,7 @@ source-repository-package
 source-repository-package
     type: darcs
     location: https://hub.darcs.net/strake/flow.hs
-    tag: "daily 18554.0"
+    tag: "daily 18556.0"
 
 source-repository-package
     type: git
@@ -52,3 +52,9 @@ source-repository-package
     type: darcs
     location: https://hub.darcs.net/strake/transformers.hs
     tag: strake-v0.5.7.0
+
+source-repository-package
+    type: git
+    location: https://github.com/strake/lens-core.hs
+    subdir: . template
+    tag: 905c3f0f9bc3c83a695649e0b063ab652a65b801

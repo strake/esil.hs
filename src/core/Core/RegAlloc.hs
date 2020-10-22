@@ -11,6 +11,7 @@ import Compiler.Flow.Pass.Live
 import Compiler.Flow.Shape
 import Control.Applicative (Alternative (..))
 import Control.Categorical.Functor
+import Control.Lens (LensLike', coerced)
 import Control.Monad.Trans.Except (Except)
 import Control.Monad.Trans.State (evalState)
 import qualified Control.Monad.Trans.State as M
@@ -65,8 +66,8 @@ newtype Insn' v i o = Insn' { unInsn' :: Assigned (v, Int) (Insn (v, Int)) i o }
 
 instance NonLocal (Insn' v) where
     type Label (Insn' v) = Core.Label
-    entryLabel = entryLabel . rhs . unInsn'
-    successors = successors . rhs . unInsn'
+    entryLabelL = (coerced :: LensLike' _ (Insn' v C _j) (Assigned (v, Int) (Insn (v, Int)) C _j)) . rhsL . entryLabelL
+    successorsL = (coerced :: LensLike' _ (Insn' v _i C) (Assigned (v, Int) (Insn (v, Int)) _i C)) . rhsL . successorsL
 
 instance HasVars (Insn' v) where
     type VarSet (Insn' v) = IntSet
